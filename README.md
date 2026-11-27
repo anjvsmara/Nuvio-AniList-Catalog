@@ -1,15 +1,15 @@
-# Nuvio AniList × Kitsu Catalog
+# Nuvio AniList Catalog
 
-A static Nuvio addon for anime discovery. AniList selects the catalog entries; Kitsu supplies the canonical metadata and episode list.
+A catalog-only Nuvio addon for anime discovery. AniList selects and sorts anime; Kitsu mappings are used only to assign compatible `kitsu:` IDs.
 
 ## Catalogs
 
 - **Currently Airing** — RELEASING TV anime, AniList score above 65 and popularity above 20,000.
 - **Top Rated** — TV anime, AniList score above 80 and popularity above 20,000.
 
-Each AniList entry is cross-referenced through Kitsu's `anilist/anime` mapping. Catalog and metadata IDs use the `kitsu:` namespace so they match Kitsu-based anime scrapers. Kitsu metadata responses include the available episode list.
+This addon exposes only the catalog resource. It does not provide metadata or episodes. Nuvio can use the metadata addons configured by the user to resolve the `kitsu:` IDs and show details/episodes, provided those addons support the same ID prefix.
 
-GitHub Actions rebuilds the JSON every six hours and after pushes to `main`.
+GitHub Actions rebuilds the catalog JSON every six hours and after pushes to `main`.
 
 ## Build locally
 
@@ -19,7 +19,7 @@ Requires Node.js 22+.
 npm run build
 ```
 
-Generated catalog JSON is written under `catalog/series/`; Kitsu metadata and episodes are written under `meta/series/`.
+Generated catalog JSON is written under `catalog/series/`.
 
 ## Install
 
@@ -27,6 +27,6 @@ Generated catalog JSON is written under `catalog/series/`; Kitsu metadata and ep
 
 ## Notes
 
-- Titles without a Kitsu mapping are skipped because their IDs cannot be resolved by the Kitsu-based metadata/scraper flow.
-- Episode availability depends on the records Kitsu exposes for each anime.
-- This addon supplies catalog and metadata/episode information, not playable video streams.
+- Anime without an AniList-to-Kitsu mapping are skipped.
+- If no mappings are returned, the build fails rather than publishing an empty catalog.
+- Playback still depends on a separate stream provider.

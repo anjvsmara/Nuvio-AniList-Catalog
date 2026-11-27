@@ -56,7 +56,7 @@ function clean(value = "") {
 }
 function omitEmpty(value) {
   return JSON.parse(JSON.stringify(value, (k, v) =>
-    v === undefined || v === "" || (Array.isArray(v) && !v.length) ? undefined : v
+    v === undefined || v === "" ? undefined : v
   ));
 }
 function dateIso(value) {
@@ -87,11 +87,10 @@ function catalogItem(m, kitsuId) {
 }
 
 async function findKitsuAnime(anilistId) {
-  const params = new URLSearchParams({
-    "filter[externalSite]": "anilist/anime",
-    "filter[externalId]": String(anilistId)
-  });
-  const json = await kitsuFetch(KITSU_API + "/mappings?" + params.toString());
+  // Keep the slash in externalSite literal; Kitsu's filter expects this exact value.
+  const url = KITSU_API + "/mappings?filter[externalSite]=anilist/anime" +
+    "&filter[externalId]=" + encodeURIComponent(String(anilistId)) + "&include=item";
+  const json = await kitsuFetch(url);
   const mapping = json.data?.find(x => x.relationships?.item?.data?.type === "anime");
   if (!mapping) return null;
   const id = mapping.relationships.item.data.id;
@@ -125,7 +124,8 @@ function makeMeta(kitsuId, attributes, genres, episodeRows) {
       const a = row.attributes || {};
       const episode = Number(a.number);
       if (!Number.isFinite(episode) || episode < 0) return null;
-      const season = Number.isFinite(Number(a.seasonNumber)) ? Number(a.seasonNumber) : 1;
+      const season = a.seasonNumber != null && Number.isFinite(Number(a.seasonNumber))
+        ? Number(a.seasonNumber) : 1;
       return omitEmpty({
         id: id + ":" + season + ":" + episode,
         title: a.canonicalTitle || a.titles?.en || a.titles?.en_jp || ("Episode " + episode),

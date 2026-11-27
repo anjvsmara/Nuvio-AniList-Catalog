@@ -1,13 +1,10 @@
 {
   "id": "com.anjvsmara.nuvio.anilist",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "name": "AniList Anime Catalog",
   "description": "AniList anime discovery catalog using Kitsu IDs; metadata is resolved by Nuvio's configured metadata addons.",
   "types": [
     "series"
-  ],
-  "idPrefixes": [
-    "kitsu:"
   ],
   "resources": [
     "catalog"

@@ -1,4 +1,4 @@
-name: Update AniList catalogs with Kitsu metadata
+name: Update AniList catalog
 
 on:
   push:
@@ -24,16 +24,18 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Build catalog data
-        run: node scripts/build.js
-      - name: Publish generated JSON
+      - name: Build catalog
+        run: |
+          rm -rf meta
+          node scripts/build.js
+      - name: Publish generated catalog JSON
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add catalog/ meta/
+          git add -A
           if git diff --cached --quiet; then
             echo "No catalog changes."
           else
-            git commit -m "chore: update AniList catalogs"
+            git commit -m "chore: update AniList catalog"
             git push
           fi

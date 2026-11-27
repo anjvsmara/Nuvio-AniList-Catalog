@@ -104,3 +104,122 @@ async function findKitsuAnime(anilistId) {
   return { id, attributes: animeJson.data.attributes || {}, genres };
 }
 
+async function getKitsuEpisodes(kitsuId) {
+  const episodes = [];
+  let next = KITSU_API + "/anime/" + encodeURIComponent(kitsuId) +
+    "/episodes?page%5Blimit%5D=20&page%5Boffset%5D=0&sort=number";
+  let pages = 0;
+  while (next && pages < 15) {
+    const json = await kitsuFetch(next);
+    episodes.push(...(json.data || []));
+    next = json.links?.next || null;
+    pages++;
+  }
+  return episodes;
+}
+
+function makeMeta(kitsuId, attributes, genres, episodeRows) {
+  const id = "kitsu:" + kitsuId;
+  const videos = episodeRows
+    .map(row => {
+      const a = row.attributes || {};
+      const episode = Number(a.number);
+      if (!Number.isFinite(episode) || episode < 0) return null;
+      const season = Number.isFinite(Number(a.seasonNumber)) ? Number(a.seasonNumber) : 1;
+      return omitEmpty({
+        id: id + ":" + season + ":" + episode,
+        title: a.canonicalTitle || a.titles?.en || a.titles?.en_jp || ("Episode " + episode),
+        season,
+        episode,
+        released: dateIso(a.airdate),
+        thumbnail: imageUrl(a.thumbnail),
+        overview: clean(a.synopsis || ""),
+        runtime: a.length ? String(a.length) : undefined
+      });
+    })
+    .filter(Boolean)
+    .sort((a, b) => a.season - b.season || a.episode - b.episode);
+
+  const rating = Number(attributes.averageRating);
+  const start = attributes.startDate;
+  return omitEmpty({
+    meta: {
+      id,
+      type: "series",
+      name: kitsuTitle(attributes),
+      poster: imageUrl(attributes.posterImage),
+      background: imageUrl(attributes.coverImage),
+      description: clean(attributes.synopsis || ""),
+      releaseInfo: start ? String(start).slice(0, 4) : undefined,
+      released: dateIso(start),
+      runtime: attributes.episodeLength ? String(attributes.episodeLength) + " min" : undefined,
+      genres,
+      imdbRating: Number.isFinite(rating) ? (rating / 10).toFixed(1) : undefined,
+      country: "Japan",
+      status: attributes.status,
+      videos
+    }
+  });
+}
+
+async function writeJson(file, data) {
+  const full = path.join(OUT, file);
+  await fs.mkdir(path.dirname(full), { recursive: true });
+  await fs.writeFile(full, JSON.stringify(omitEmpty(data), null, 2) + "\n");
+}
+
+const currentlyAiring = await anilist({
+  page: 1, perPage: PAGE_SIZE, sort: ["POPULARITY_DESC"],
+  status: "RELEASING", minScore: 65, minPopularity: 20000
+});
+const topRated = await anilist({
+  page: 1, perPage: PAGE_SIZE, sort: ["SCORE_DESC"],
+  minScore: 80, minPopularity: 20000
+});
+
+const uniqueAniList = new Map();
+for (const m of [...currentlyAiring, ...topRated]) uniqueAniList.set(m.id, m);
+
+const resolved = new Map();
+const idByAniList = new Map();
+for (const m of uniqueAniList.values()) {
+  try {
+    const kitsu = await findKitsuAnime(m.id);
+    if (kitsu) {
+      idByAniList.set(m.id, kitsu.id);
+      if (!resolved.has(kitsu.id)) resolved.set(kitsu.id, kitsu);
+    } else {
+      console.warn("No Kitsu mapping for AniList ID", m.id);
+    }
+  } catch (error) {
+    console.warn("Kitsu mapping failed for AniList ID", m.id, error.message);
+  }
+}
+
+await writeJson("catalog/series/currently-airing.json", {
+  metas: currentlyAiring
+    .filter(m => idByAniList.has(m.id))
+    .map(m => catalogItem(m, idByAniList.get(m.id)))
+});
+await writeJson("catalog/series/top-rated.json", {
+  metas: topRated
+    .filter(m => idByAniList.has(m.id))
+    .map(m => catalogItem(m, idByAniList.get(m.id)))
+});
+
+for (const [kitsuId, anime] of resolved) {
+  try {
+    const episodes = await getKitsuEpisodes(kitsuId);
+    await writeJson("meta/series/kitsu:" + kitsuId + ".json",
+      makeMeta(kitsuId, anime.attributes, anime.genres, episodes));
+  } catch (error) {
+    console.warn("Kitsu metadata failed for Kitsu ID", kitsuId, error.message);
+  }
+}
+
+console.log(
+  "Built Kitsu-backed catalogs:",
+  currentlyAiring.length, "airing candidates;",
+  topRated.length, "top-rated candidates;",
+  resolved.size, "Kitsu metadata records."
+);

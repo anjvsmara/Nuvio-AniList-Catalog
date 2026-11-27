@@ -51,7 +51,7 @@ function dateText(m) {
 }
 function catalogItem(m) {
   return {
-    id: "anilist-" + m.id,
+    id: "anilist:" + m.id,
     type: "series",
     name: m.title.english || m.title.romaji || m.title.native || ("AniList " + m.id),
     poster: m.coverImage.extraLarge || m.coverImage.large || "",
@@ -75,8 +75,6 @@ function metaItem(m) {
         ? new Date(Date.UTC(m.startDate.year, m.startDate.month - 1, m.startDate.day)).toISOString()
         : undefined,
       country: "Japan",
-      cast: [],
-      director: (m.studios?.nodes || []).map(x => x.name)
     }
   };
 }
@@ -106,7 +104,7 @@ await writeJson("catalog/series/currently-airing.json", { metas: currentlyAiring
 await writeJson("catalog/series/top-rated.json", { metas: topRated.map(catalogItem) });
 
 for (const m of all.values()) {
-  await writeJson("meta/series/" + encodeURIComponent("anilist:" + m.id) + ".json", metaItem(m));
+  await writeJson("meta/series/" + "anilist:" + m.id + ".json", metaItem(m));
 }
 
 console.log("Built catalogs:", currentlyAiring.length, "airing;", topRated.length, "top-rated;", all.size, "metadata files.");

@@ -5,8 +5,6 @@ const ANILIST_API = "https://graphql.anilist.co";
 const KITSU_API = "https://kitsu.io/api/edge";
 const OUT = process.env.OUT_DIR || ".";
 const PAGE_SIZE = 50;
-const KITSU_DELAY = 650;
-let lastKitsuRequest = 0;
 
 const query = `
 query ($page: Int, $perPage: Int, $sort: [MediaSort], $status: MediaStatus, $minScore: Int, $minPopularity: Int) {
@@ -38,9 +36,6 @@ async function anilist(variables) {
 }
 
 async function kitsuFetch(url) {
-  const wait = KITSU_DELAY - (Date.now() - lastKitsuRequest);
-  if (wait > 0) await new Promise(resolve => setTimeout(resolve, wait));
-  lastKitsuRequest = Date.now();
   const response = await fetch(url, {
     headers: { Accept: "application/vnd.api+json" }
   });
@@ -64,32 +59,15 @@ function dateIso(value) {
   const date = new Date(value + "T00:00:00.000Z");
   return Number.isNaN(date.getTime()) ? undefined : date.toISOString();
 }
-function kitsuTitle(a) {
-  return a.canonicalTitle || a.titles?.en || a.titles?.en_jp || a.titles?.ja_jp || "Unknown Anime";
-}
-function imageUrl(image) {
-  return image?.original || image?.large || image?.medium || image?.small || undefined;
-}
-function catalogItem(m, kitsuId) {
-  return {
-    id: "kitsu:" + kitsuId,
-    type: "series",
-    name: m.title.english || m.title.romaji || m.title.native || ("AniList " + m.id),
-    poster: m.coverImage.extraLarge || m.coverImage.large || "",
-    posterShape: "poster",
-    background: m.bannerImage || undefined,
-    description: clean(m.description || ""),
-    releaseInfo: m.seasonYear ? String(m.seasonYear) : "",
-    genres: m.genres || [],
-    runtime: m.duration ? String(m.duration) + " min" : undefined,
-    imdbRating: m.averageScore ? (m.averageScore / 10).toFixed(1) : undefined
-  };
-}
 
 async function findKitsuAnime(anilistId) {
   // Keep the slash in externalSite literal; Kitsu's filter expects this exact value.
-  const url = KITSU_API + "/mappings?filter[externalSite]=anilist/anime" +
-    "&filter[externalId]=" + encodeURIComponent(String(anilistId)) + "&include=item";
+  const params = new URLSearchParams({
+    "filter[externalSite]": "anilist/anime",
+    "filter[externalId]": String(anilistId),
+    include: "item"
+  });
+  const url = KITSU_API + "/mappings?" + params.toString();
   const json = await kitsuFetch(url);
   const mapping = json.data?.find(x => x.relationships?.item?.data?.type === "anime");
   if (!mapping) return null;
@@ -101,65 +79,6 @@ async function findKitsuAnime(anilistId) {
     .map(x => x.attributes?.name)
     .filter(Boolean);
   return { id, attributes: animeJson.data.attributes || {}, genres };
-}
-
-async function getKitsuEpisodes(kitsuId) {
-  const episodes = [];
-  let next = KITSU_API + "/anime/" + encodeURIComponent(kitsuId) +
-    "/episodes?page%5Blimit%5D=20&page%5Boffset%5D=0&sort=number";
-  let pages = 0;
-  while (next && pages < 15) {
-    const json = await kitsuFetch(next);
-    episodes.push(...(json.data || []));
-    next = json.links?.next || null;
-    pages++;
-  }
-  return episodes;
-}
-
-function makeMeta(kitsuId, attributes, genres, episodeRows) {
-  const id = "kitsu:" + kitsuId;
-  const videos = episodeRows
-    .map(row => {
-      const a = row.attributes || {};
-      const episode = Number(a.number);
-      if (!Number.isFinite(episode) || episode < 0) return null;
-      const season = a.seasonNumber != null && Number.isFinite(Number(a.seasonNumber))
-        ? Number(a.seasonNumber) : 1;
-      return omitEmpty({
-        id: id + ":" + season + ":" + episode,
-        title: a.canonicalTitle || a.titles?.en || a.titles?.en_jp || ("Episode " + episode),
-        season,
-        episode,
-        released: dateIso(a.airdate),
-        thumbnail: imageUrl(a.thumbnail),
-        overview: clean(a.synopsis || ""),
-        runtime: a.length ? String(a.length) : undefined
-      });
-    })
-    .filter(Boolean)
-    .sort((a, b) => a.season - b.season || a.episode - b.episode);
-
-  const rating = Number(attributes.averageRating);
-  const start = attributes.startDate;
-  return omitEmpty({
-    meta: {
-      id,
-      type: "series",
-      name: kitsuTitle(attributes),
-      poster: imageUrl(attributes.posterImage),
-      background: imageUrl(attributes.coverImage),
-      description: clean(attributes.synopsis || ""),
-      releaseInfo: start ? String(start).slice(0, 4) : undefined,
-      released: dateIso(start),
-      runtime: attributes.episodeLength ? String(attributes.episodeLength) + " min" : undefined,
-      genres,
-      imdbRating: Number.isFinite(rating) ? (rating / 10).toFixed(1) : undefined,
-      country: "Japan",
-      status: attributes.status,
-      videos
-    }
-  });
 }
 
 async function writeJson(file, data) {
@@ -180,14 +99,13 @@ const topRated = await anilist({
 const uniqueAniList = new Map();
 for (const m of [...currentlyAiring, ...topRated]) uniqueAniList.set(m.id, m);
 
-const resolved = new Map();
 const idByAniList = new Map();
 for (const m of uniqueAniList.values()) {
   try {
     const kitsu = await findKitsuAnime(m.id);
     if (kitsu) {
       idByAniList.set(m.id, kitsu.id);
-      if (!resolved.has(kitsu.id)) resolved.set(kitsu.id, kitsu);
+
     } else {
       console.warn("No Kitsu mapping for AniList ID", m.id);
     }
@@ -195,6 +113,8 @@ for (const m of uniqueAniList.values()) {
     console.warn("Kitsu mapping failed for AniList ID", m.id, error.message);
   }
 }
+
+if (idByAniList.size === 0) throw new Error("No AniList entries could be mapped to Kitsu. Refusing to publish empty catalogs.");
 
 await writeJson("catalog/series/currently-airing.json", {
   metas: currentlyAiring
@@ -207,19 +127,9 @@ await writeJson("catalog/series/top-rated.json", {
     .map(m => catalogItem(m, idByAniList.get(m.id)))
 });
 
-for (const [kitsuId, anime] of resolved) {
-  try {
-    const episodes = await getKitsuEpisodes(kitsuId);
-    await writeJson("meta/series/kitsu:" + kitsuId + ".json",
-      makeMeta(kitsuId, anime.attributes, anime.genres, episodes));
-  } catch (error) {
-    console.warn("Kitsu metadata failed for Kitsu ID", kitsuId, error.message);
-  }
-}
-
 console.log(
-  "Built Kitsu-backed catalogs:",
+  "Built AniList catalogs with Kitsu IDs:",
   currentlyAiring.length, "airing candidates;",
   topRated.length, "top-rated candidates;",
-  resolved.size, "Kitsu metadata records."
+  idByAniList.size, "Kitsu mappings."
 );

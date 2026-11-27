@@ -1,4 +1,4 @@
-name: Update AniList catalogs
+name: Update AniList catalogs with Kitsu metadata
 
 on:
   push:
@@ -6,6 +6,10 @@ on:
   workflow_dispatch:
   schedule:
     - cron: "17 */6 * * *"
+
+concurrency:
+  group: nuvio-anilist-kitsu-catalog
+  cancel-in-progress: true
 
 permissions:
   contents: write

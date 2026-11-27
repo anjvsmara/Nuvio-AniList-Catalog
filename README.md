@@ -27,4 +27,4 @@ Use the raw GitHub URL:
 
 ## Important limitation
 
-This first version is a discovery and metadata catalog. Its IDs use the `anilist-` namespace; they are not TMDB IDs and do not automatically resolve to streams from TMDB-based providers. Playback compatibility needs a separate ID-mapping step.
+This first version is a discovery and metadata catalog. Its IDs use the `anilist:` namespace; they are not TMDB IDs and do not automatically resolve to streams from TMDB-based providers. Playback compatibility needs a separate ID-mapping step.

@@ -1,0 +1,23 @@
+{
+  "meta": {
+    "id": "anilist:110277",
+    "type": "series",
+    "name": "Attack on Titan Final Season",
+    "poster": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx110277-sKUNXAsWMNFw.jpg",
+    "posterShape": "poster",
+    "background": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/110277-iuGn6F5bK1U1.jpg",
+    "description": "It’s been four years since the Scout Regiment reached the shoreline, and the world looks different now. Things are heating up as the fate of the Scout Regiment—and the people of Paradis—are determined at last. However, Eren is missing. Will he reappear before age-old tensions between Marleyans and Eldians result in the war of all wars? (Source: Crunchyroll)",
+    "releaseInfo": "2020",
+    "genres": [
+      "Action",
+      "Drama",
+      "Fantasy",
+      "Mystery"
+    ],
+    "runtime": "24 min",
+    "imdbRating": "8.7",
+    "status": "FINISHED",
+    "released": "2020-12-07T00:00:00.000Z",
+    "country": "Japan"
+  }
+}

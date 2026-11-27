@@ -1,0 +1,22 @@
+{
+  "meta": {
+    "id": "anilist:101348",
+    "type": "series",
+    "name": "Vinland Saga",
+    "poster": "https://s4.anilist.co/file/anilistcdn/media/anime/cover/large/bx101348-2fhDFPCuMNiz.jpg",
+    "posterShape": "poster",
+    "background": "https://s4.anilist.co/file/anilistcdn/media/anime/banner/101348-pivKKffCAwAY.jpg",
+    "description": "Thorfinn is son to one of the Vikings' greatest warriors, but when his father is killed in battle by the mercenary leader Askeladd, he swears to have his revenge. Thorfinn joins Askeladd's band in order to challenge him to a duel, and ends up caught in the middle of a war for the crown of England. (Source: Kodansha USA)",
+    "releaseInfo": "2019",
+    "genres": [
+      "Action",
+      "Adventure",
+      "Drama"
+    ],
+    "runtime": "24 min",
+    "imdbRating": "8.7",
+    "status": "FINISHED",
+    "released": "2019-07-08T00:00:00.000Z",
+    "country": "Japan"
+  }
+}

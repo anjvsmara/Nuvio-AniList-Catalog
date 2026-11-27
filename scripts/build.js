@@ -44,7 +44,10 @@ async function kitsuFetch(url) {
   const response = await fetch(url, {
     headers: { Accept: "application/vnd.api+json" }
   });
-  if (!response.ok) throw new Error("Kitsu HTTP " + response.status + " for " + url);
+  if (!response.ok) {
+    const body = await response.text();
+    throw new Error("Kitsu HTTP " + response.status + " for " + url + " :: " + body.slice(0, 300));
+  }
   return response.json();
 }
 
@@ -87,147 +90,18 @@ async function findKitsuAnime(anilistId) {
   const params = new URLSearchParams({
     "filter[externalSite]": "anilist/anime",
     "filter[externalId]": String(anilistId),
-    include: "item.genres"
+    include: "item"
   });
   const json = await kitsuFetch(KITSU_API + "/mappings?" + params.toString());
   const mapping = json.data?.find(x => x.relationships?.item?.data?.type === "anime");
   if (!mapping) return null;
   const id = mapping.relationships.item.data.id;
-  const detail = json.included?.find(x => x.type === "anime" && x.id === id);
-  const genres = (json.included || [])
-    .filter(x => x.type === "genres")
-    .map(x => x.attributes?.name)
-    .filter(Boolean);
-  if (detail) return { id, attributes: detail.attributes || {}, genres };
   const animeJson = await kitsuFetch(KITSU_API + "/anime/" + encodeURIComponent(id) + "?include=genres");
-  const fallbackGenres = (animeJson.included || [])
+  if (!animeJson.data) return null;
+  const genres = (animeJson.included || [])
     .filter(x => x.type === "genres")
     .map(x => x.attributes?.name)
     .filter(Boolean);
-  return animeJson.data ? { id, attributes: animeJson.data.attributes || {}, genres: fallbackGenres } : null;
+  return { id, attributes: animeJson.data.attributes || {}, genres };
 }
 
-async function getKitsuEpisodes(kitsuId) {
-  const episodes = [];
-  let next = KITSU_API + "/anime/" + encodeURIComponent(kitsuId) +
-    "/episodes?page%5Blimit%5D=20&page%5Boffset%5D=0&sort=number";
-  let pages = 0;
-  while (next && pages < 15) {
-    const json = await kitsuFetch(next);
-    episodes.push(...(json.data || []));
-    next = json.links?.next || null;
-    pages++;
-  }
-  return episodes;
-}
-
-function makeMeta(kitsuId, attributes, genres, episodeRows) {
-  const id = "kitsu:" + kitsuId;
-  const videos = episodeRows
-    .map(row => {
-      const a = row.attributes || {};
-      const episode = Number(a.number);
-      if (!Number.isFinite(episode) || episode < 0) return null;
-      const season = Number.isFinite(Number(a.seasonNumber)) ? Number(a.seasonNumber) : 1;
-      return omitEmpty({
-        id: id + ":" + season + ":" + episode,
-        title: a.canonicalTitle || a.titles?.en || a.titles?.en_jp || ("Episode " + episode),
-        season,
-        episode,
-        released: dateIso(a.airdate),
-        thumbnail: imageUrl(a.thumbnail),
-        overview: clean(a.synopsis || ""),
-        runtime: a.length ? String(a.length) : undefined
-      });
-    })
-    .filter(Boolean)
-    .sort((a, b) => a.season - b.season || a.episode - b.episode);
-
-  const rating = Number(attributes.averageRating);
-  const start = attributes.startDate;
-  return omitEmpty({
-    meta: {
-      id,
-      type: "series",
-      name: kitsuTitle(attributes),
-      poster: imageUrl(attributes.posterImage),
-      background: imageUrl(attributes.coverImage),
-      description: clean(attributes.synopsis || ""),
-      releaseInfo: start ? String(start).slice(0, 4) : undefined,
-      released: dateIso(start),
-      runtime: attributes.episodeLength ? String(attributes.episodeLength) + " min" : undefined,
-      genres: [],
-      imdbRating: Number.isFinite(rating) ? (rating / 10).toFixed(1) : undefined,
-      country: "Japan",
-      status: attributes.status,
-      videos
-    }
-  });
-}
-
-async function writeJson(file, data) {
-  const full = path.join(OUT, file);
-  await fs.mkdir(path.dirname(full), { recursive: true });
-  await fs.writeFile(full, JSON.stringify(omitEmpty(data), null, 2) + "\n");
-}
-
-const currentlyAiring = await anilist({
-  page: 1, perPage: PAGE_SIZE, sort: ["POPULARITY_DESC"],
-  status: "RELEASING", minScore: 65, minPopularity: 20000
-});
-const topRated = await anilist({
-  page: 1, perPage: PAGE_SIZE, sort: ["SCORE_DESC"],
-  minScore: 80, minPopularity: 20000
-});
-
-const uniqueAniList = new Map();
-for (const m of [...currentlyAiring, ...topRated]) uniqueAniList.set(m.id, m);
-
-const resolved = new Map();
-for (const m of uniqueAniList.values()) {
-  try {
-    const kitsu = await findKitsuAnime(m.id);
-    if (kitsu) {
-      if (!resolved.has(kitsu.id)) resolved.set(kitsu.id, { kitsu, anilist: m });
-    } else {
-      console.warn("No Kitsu mapping for AniList ID", m.id);
-    }
-  } catch (error) {
-    console.warn("Kitsu mapping failed for AniList ID", m.id, error.message);
-  }
-}
-
-const idByAniList = new Map();
-for (const [kitsuId, entry] of resolved) {
-  for (const m of uniqueAniList.values()) {
-    if (m.id === entry.anilist.id) idByAniList.set(m.id, kitsuId);
-  }
-}
-
-await writeJson("catalog/series/currently-airing.json", {
-  metas: currentlyAiring
-    .filter(m => idByAniList.has(m.id))
-    .map(m => catalogItem(m, idByAniList.get(m.id)))
-});
-await writeJson("catalog/series/top-rated.json", {
-  metas: topRated
-    .filter(m => idByAniList.has(m.id))
-    .map(m => catalogItem(m, idByAniList.get(m.id)))
-});
-
-for (const [kitsuId, entry] of resolved) {
-  try {
-    const episodes = await getKitsuEpisodes(kitsuId);
-    const meta = makeMeta(kitsuId, entry.kitsu.attributes, entry.kitsu.genres, episodes);
-    await writeJson("meta/series/kitsu:" + kitsuId + ".json", meta);
-  } catch (error) {
-    console.warn("Kitsu metadata failed for Kitsu ID", kitsuId, error.message);
-  }
-}
-
-console.log(
-  "Built Kitsu-backed catalogs:",
-  currentlyAiring.length, "airing candidates;",
-  topRated.length, "top-rated candidates;",
-  resolved.size, "Kitsu metadata records."
-);

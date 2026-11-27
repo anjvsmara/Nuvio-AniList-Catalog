@@ -1,13 +1,15 @@
-# Nuvio AniList Catalog
+# Nuvio AniList × Kitsu Catalog
 
-A static Nuvio addon catalog for Japanese TV anime, using AniList GraphQL.
+A static Nuvio addon for anime discovery. AniList selects the catalog entries; Kitsu supplies the canonical metadata and episode list.
 
 ## Catalogs
 
-- **Currently Airing** — RELEASING TV anime, score above 65 and popularity above 20,000.
-- **Top Rated** — TV anime, score above 80 and popularity above 20,000.
+- **Currently Airing** — RELEASING TV anime, AniList score above 65 and popularity above 20,000.
+- **Top Rated** — TV anime, AniList score above 80 and popularity above 20,000.
 
-GitHub Actions refreshes generated JSON every six hours.
+Each AniList entry is cross-referenced through Kitsu's `anilist/anime` mapping. Catalog and metadata IDs use the `kitsu:` namespace so they match Kitsu-based anime scrapers. Kitsu metadata responses include the available episode list.
+
+GitHub Actions rebuilds the JSON every six hours and after pushes to `main`.
 
 ## Build locally
 
@@ -17,14 +19,14 @@ Requires Node.js 22+.
 npm run build
 ```
 
-Generated JSON is written into `catalog/` and `meta/` at the repository root.
+Generated catalog JSON is written under `catalog/series/`; Kitsu metadata and episodes are written under `meta/series/`.
 
 ## Install
 
-Use the raw GitHub URL:
-
 `https://raw.githubusercontent.com/anjvsmara/Nuvio-AniList-Catalog/main/manifest.json`
 
-## Important limitation
+## Notes
 
-This first version is a discovery and metadata catalog. Its IDs use the `anilist:` namespace; they are not TMDB IDs and do not automatically resolve to streams from TMDB-based providers. Playback compatibility needs a separate ID-mapping step.
+- Titles without a Kitsu mapping are skipped because their IDs cannot be resolved by the Kitsu-based metadata/scraper flow.
+- Episode availability depends on the records Kitsu exposes for each anime.
+- This addon supplies catalog and metadata/episode information, not playable video streams.

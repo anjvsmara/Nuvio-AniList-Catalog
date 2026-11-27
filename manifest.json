@@ -2,7 +2,7 @@
   "id": "com.anjvsmara.nuvio.anilist",
   "version": "0.2.0",
   "name": "AniList × Kitsu Anime Catalog",
-  "description": "Anime discovery powered by AniList, with Kitsu metadata and episodes.",
+  "description": "Anime discovery powered by AniList; metadata is handled by the user's configured Nuvio metadata addons.",
   "types": [
     "series"
   ],
@@ -10,16 +10,7 @@
     "kitsu:"
   ],
   "resources": [
-    "catalog",
-    {
-      "name": "meta",
-      "types": [
-        "series"
-      ],
-      "idPrefixes": [
-        "kitsu:"
-      ]
-    }
+    "catalog"
   ],
   "catalogs": [
     {

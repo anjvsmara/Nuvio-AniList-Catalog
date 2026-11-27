@@ -1,13 +1,13 @@
 {
   "id": "com.anjvsmara.nuvio.anilist",
-  "version": "0.1.0",
-  "name": "AniList Anime Catalog",
-  "description": "Anime discovery catalogs powered by AniList.",
+  "version": "0.2.0",
+  "name": "AniList × Kitsu Anime Catalog",
+  "description": "Anime discovery powered by AniList, with Kitsu metadata and episodes.",
   "types": [
     "series"
   ],
   "idPrefixes": [
-    "anilist:"
+    "kitsu:"
   ],
   "resources": [
     "catalog",
@@ -17,7 +17,7 @@
         "series"
       ],
       "idPrefixes": [
-        "anilist:"
+        "kitsu:"
       ]
     }
   ],

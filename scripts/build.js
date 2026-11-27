@@ -2,7 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 
 const API = "https://graphql.anilist.co";
-const OUT = process.env.OUT_DIR || "public";
+const OUT = process.env.OUT_DIR || ".";
 const PAGE_SIZE = 50;
 
 const query = `
@@ -51,7 +51,7 @@ function dateText(m) {
 }
 function catalogItem(m) {
   return {
-    id: "anilist:" + m.id,
+    id: "anilist-" + m.id,
     type: "series",
     name: m.title.english || m.title.romaji || m.title.native || ("AniList " + m.id),
     poster: m.coverImage.extraLarge || m.coverImage.large || "",
@@ -101,7 +101,7 @@ const topRated = await anilist({
 const all = new Map();
 for (const m of [...currentlyAiring, ...topRated]) all.set(m.id, m);
 
-await writeJson("manifest.json", JSON.parse(await fs.readFile("manifest.json", "utf8")));
+// manifest.json is maintained at the repository root.
 await writeJson("catalog/series/currently-airing.json", { metas: currentlyAiring.map(catalogItem) });
 await writeJson("catalog/series/top-rated.json", { metas: topRated.map(catalogItem) });
 

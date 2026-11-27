@@ -87,16 +87,24 @@ async function findKitsuAnime(anilistId) {
   const params = new URLSearchParams({
     "filter[externalSite]": "anilist/anime",
     "filter[externalId]": String(anilistId),
-    include: "item"
+    include: "item.genres"
   });
   const json = await kitsuFetch(KITSU_API + "/mappings?" + params.toString());
   const mapping = json.data?.find(x => x.relationships?.item?.data?.type === "anime");
   if (!mapping) return null;
   const id = mapping.relationships.item.data.id;
   const detail = json.included?.find(x => x.type === "anime" && x.id === id);
-  if (detail) return { id, attributes: detail.attributes || {} };
-  const animeJson = await kitsuFetch(KITSU_API + "/anime/" + encodeURIComponent(id));
-  return animeJson.data ? { id, attributes: animeJson.data.attributes || {} } : null;
+  const genres = (json.included || [])
+    .filter(x => x.type === "genres")
+    .map(x => x.attributes?.name)
+    .filter(Boolean);
+  if (detail) return { id, attributes: detail.attributes || {}, genres };
+  const animeJson = await kitsuFetch(KITSU_API + "/anime/" + encodeURIComponent(id) + "?include=genres");
+  const fallbackGenres = (animeJson.included || [])
+    .filter(x => x.type === "genres")
+    .map(x => x.attributes?.name)
+    .filter(Boolean);
+  return animeJson.data ? { id, attributes: animeJson.data.attributes || {}, genres: fallbackGenres } : null;
 }
 
 async function getKitsuEpisodes(kitsuId) {
@@ -113,7 +121,7 @@ async function getKitsuEpisodes(kitsuId) {
   return episodes;
 }
 
-function makeMeta(kitsuId, attributes, episodeRows) {
+function makeMeta(kitsuId, attributes, genres, episodeRows) {
   const id = "kitsu:" + kitsuId;
   const videos = episodeRows
     .map(row => {
@@ -210,7 +218,7 @@ await writeJson("catalog/series/top-rated.json", {
 for (const [kitsuId, entry] of resolved) {
   try {
     const episodes = await getKitsuEpisodes(kitsuId);
-    const meta = makeMeta(kitsuId, entry.kitsu.attributes, episodes);
+    const meta = makeMeta(kitsuId, entry.kitsu.attributes, entry.kitsu.genres, episodes);
     await writeJson("meta/series/kitsu:" + kitsuId + ".json", meta);
   } catch (error) {
     console.warn("Kitsu metadata failed for Kitsu ID", kitsuId, error.message);

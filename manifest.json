@@ -1,0 +1,38 @@
+{
+  "id": "com.anjvsmara.nuvio.anilist",
+  "version": "0.1.0",
+  "name": "AniList Anime Catalog",
+  "description": "Anime discovery catalogs powered by AniList.",
+  "types": [
+    "series"
+  ],
+  "idPrefixes": [
+    "anilist:"
+  ],
+  "resources": [
+    "catalog",
+    {
+      "name": "meta",
+      "types": [
+        "series"
+      ],
+      "idPrefixes": [
+        "anilist:"
+      ]
+    }
+  ],
+  "catalogs": [
+    {
+      "type": "series",
+      "id": "currently-airing",
+      "name": "Currently Airing",
+      "extra": []
+    },
+    {
+      "type": "series",
+      "id": "top-rated",
+      "name": "Top Rated",
+      "extra": []
+    }
+  ]
+}

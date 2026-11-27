@@ -89,8 +89,7 @@ function catalogItem(m, kitsuId) {
 async function findKitsuAnime(anilistId) {
   const params = new URLSearchParams({
     "filter[externalSite]": "anilist/anime",
-    "filter[externalId]": String(anilistId),
-    include: "item"
+    "filter[externalId]": String(anilistId)
   });
   const json = await kitsuFetch(KITSU_API + "/mappings?" + params.toString());
   const mapping = json.data?.find(x => x.relationships?.item?.data?.type === "anime");
